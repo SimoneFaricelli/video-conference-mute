@@ -68,7 +68,7 @@ internal sealed class ShortcutControl : ContentControl
         var keys = new KeyCaps { KeySize = 16, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 16, 0, 16) };
         var invalid = new InfoBar { Title = Loc.Get("InvalidShortcutTitle"), Message = Loc.Get("InvalidShortcutMessage"), Severity = InfoBarSeverity.Error, IsClosable = false };
         var altGr = new InfoBar { Title = Loc.Get("AltGrWarningTitle"), Message = Loc.Get("AltGrWarningMessage"), Severity = InfoBarSeverity.Warning, IsClosable = false };
-        var conflict = new InfoBar { Title = Loc.Get("ConflictWarningTitle"), Message = Loc.Get("ConflictWarningMessage"), Severity = InfoBarSeverity.Warning, IsClosable = false };
+        var conflict = new InfoBar { Title = Loc.Get("ConflictWarningTitle"), Message = Loc.Get("ConflictWarningMessage"), Severity = InfoBarSeverity.Informational, IsClosable = false };
 
         var panel = new StackPanel { MinWidth = 400 };
         panel.Children.Add(new TextBlock { Text = Loc.Get("ShortcutDialogDescription"), TextWrapping = TextWrapping.Wrap });

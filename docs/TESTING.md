@@ -25,9 +25,13 @@ real PC. Keep `%TEMP%\VCM.log` and `%ProgramData%\VCM\camera.log` at hand when s
   - the dialog captures Win combinations without opening Start;
   - an invalid combination shows the error;
   - Ctrl+Alt shows the Alt Gr warning;
-  - a combination owned by another app shows the conflict warning;
+  - a combination owned by another app shows the takeover note;
   - Save, Reset and Cancel behave as expected.
-- [ ] A shortcut already used elsewhere shows the warning on its card.
+- [ ] A shortcut already used by Windows or another app:
+  - shows no warning on its card and triggers VCM, not the other owner;
+  - with the Win key, releasing Win does not open Start; with Alt, the menu bar of the focused app is not activated;
+  - push to talk on such a combination unmutes while held and mutes again on release;
+  - `%TEMP%\VCM.log` reports "overriding it with the keyboard hook".
 
 ## Microphone
 

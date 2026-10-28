@@ -41,7 +41,9 @@ Improvements over the original:
 - Shortcuts through `RegisterHotKey`:
   - they work over elevated windows;
   - they cannot be silently dropped by Windows;
-  - conflicts with Windows or other apps are reported on the settings page.
+  - a combination already used by Windows or another app is taken over through a low-level keyboard hook, as the
+    original did. That hook only exists while such a combination is configured, and those shortcuts do not work
+    while an elevated window has focus.
 - Vector toolbar: sharp at any DPI, localized, excluded from screen sharing.
 - Tray icon:
   - shows the microphone and camera state;

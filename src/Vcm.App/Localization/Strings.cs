@@ -17,7 +17,7 @@ internal static class Strings
         ["HotkeyMicrophone"] = "Mute microphone",
         ["HotkeyPushToTalk"] = "Push to talk",
         ["HotkeyCamera"] = "Mute camera",
-        ["HotkeyInUseElsewhere"] = "This shortcut is already used by Windows or another app",
+        ["HotkeyInUseElsewhere"] = "This shortcut is already used by Windows or another app and could not be taken over",
         ["HotkeyDuplicate"] = "This shortcut is already assigned to another action",
         ["HotkeyInvalid"] = "Invalid shortcut",
 
@@ -79,7 +79,7 @@ internal static class Strings
         ["AltGrWarningTitle"] = "Possible shortcut interference with Alt Gr",
         ["AltGrWarningMessage"] = "Shortcuts with Ctrl and Alt may remove functionality from some international keyboards, because Ctrl + Alt = Alt Gr in those keyboards.",
         ["ConflictWarningTitle"] = "Shortcut already in use",
-        ["ConflictWarningMessage"] = "Windows or another app already uses this combination; VCM will not receive it.",
+        ["ConflictWarningMessage"] = "Windows or another app already uses this combination. VCM will take it over, so it will no longer reach them.",
         ["EditShortcut"] = "Edit shortcut",
 
         ["ToolbarMicOn"] = "Microphone on",
@@ -114,7 +114,7 @@ internal static class Strings
         ["HotkeyMicrophone"] = "Disattiva microfono",
         ["HotkeyPushToTalk"] = "Premi per parlare",
         ["HotkeyCamera"] = "Disattiva camera",
-        ["HotkeyInUseElsewhere"] = "Questa scelta rapida è già usata da Windows o da un'altra app",
+        ["HotkeyInUseElsewhere"] = "Questa scelta rapida è già usata da Windows o da un'altra app e non è stato possibile prenderla in carico",
         ["HotkeyDuplicate"] = "Questa scelta rapida è già assegnata a un'altra azione",
         ["HotkeyInvalid"] = "Scelta rapida non valida",
 
@@ -176,7 +176,7 @@ internal static class Strings
         ["AltGrWarningTitle"] = "Possibile interferenza con ALT GR",
         ["AltGrWarningMessage"] = "Le scelte rapide con CTRL e ALT possono togliere funzionalità ad alcune tastiere internazionali, perché CTRL + ALT = ALT GR su quelle tastiere.",
         ["ConflictWarningTitle"] = "Scelta rapida già in uso",
-        ["ConflictWarningMessage"] = "Windows o un'altra app usano già questa combinazione; VCM non la riceverà.",
+        ["ConflictWarningMessage"] = "Windows o un'altra app usano già questa combinazione. VCM la prenderà in carico, quindi non arriverà più a loro.",
         ["EditShortcut"] = "Modifica scelta rapida",
 
         ["ToolbarMicOn"] = "Microfono attivo",

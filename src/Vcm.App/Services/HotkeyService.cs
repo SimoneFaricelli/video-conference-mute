@@ -16,7 +16,9 @@ internal enum HotkeyStatus
 {
     Registered,
     Disabled,
-    /// <summary>Used by Windows or another application.</summary>
+    /// <summary>Used by Windows or another application; taken over through the keyboard hook.</summary>
+    Overridden,
+    /// <summary>Used by Windows or another application and the keyboard hook is not available.</summary>
     InUseElsewhere,
     /// <summary>Same combination as another VCM shortcut with higher precedence.</summary>
     Duplicate,
@@ -25,8 +27,9 @@ internal enum HotkeyStatus
 
 /// <summary>
 /// Global shortcuts through RegisterHotKey. Unlike the low-level hook of the original module this keeps working
-/// over elevated windows, cannot be silently dropped by Windows and reports conflicts. Push-to-talk release is
-/// detected by polling the key state only while the key is held.
+/// over elevated windows and cannot be silently dropped by Windows. Push-to-talk release is detected by polling the
+/// key state only while the key is held. Combinations another application already registered go through
+/// <see cref="KeyboardHook"/> instead, which overrides them as the original module did.
 /// </summary>
 internal sealed class HotkeyService : IDisposable
 {
@@ -34,7 +37,9 @@ internal sealed class HotkeyService : IDisposable
     private readonly DispatcherTimer _releaseTimer;
     private readonly Dictionary<HotkeyAction, HotkeySettings> _hotkeys = [];
     private readonly Dictionary<HotkeyAction, HotkeyStatus> _status = [];
+    private readonly KeyboardHook _hook;
     private int _pushToTalkKey;
+    private bool _hookPushToTalk;
     private bool _suspended;
 
     public HotkeyService(MessageWindow window, Dispatcher dispatcher)
@@ -43,6 +48,9 @@ internal sealed class HotkeyService : IDisposable
         _window.AddHandler(OnMessage);
         _releaseTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(15), DispatcherPriority.Input, OnReleaseTimer, dispatcher);
         _releaseTimer.Stop();
+        _hook = new KeyboardHook(
+            action => dispatcher.BeginInvoke(() => OnHookPressed(action)),
+            action => dispatcher.BeginInvoke(() => OnHookReleased(action)));
     }
 
     public event Action<HotkeyAction>? Pressed;
@@ -73,6 +81,7 @@ internal sealed class HotkeyService : IDisposable
             NativeMethods.UnregisterHotKey(_window.Handle, (int)action);
             _status[action] = HotkeyStatus.Disabled;
         }
+        _hook.SetBindings([]);
         StopPushToTalk();
     }
 
@@ -84,6 +93,7 @@ internal sealed class HotkeyService : IDisposable
         {
             NativeMethods.UnregisterHotKey(_window.Handle, (int)action);
         }
+        _hook.Suspended = true;
     }
 
     public void Resume()
@@ -108,6 +118,7 @@ internal sealed class HotkeyService : IDisposable
     private void Apply()
     {
         var registered = new List<HotkeySettings>();
+        var hooked = new List<(HotkeyAction, HotkeySettings)>();
         foreach (var (action, hotkey) in _hotkeys)
         {
             NativeMethods.UnregisterHotKey(_window.Handle, (int)action);
@@ -129,10 +140,23 @@ internal sealed class HotkeyService : IDisposable
                 continue;
             }
 
-            bool ok = NativeMethods.RegisterHotKey(_window.Handle, (int)action, ToModifiers(hotkey), (uint)hotkey.Code);
-            _status[action] = ok ? HotkeyStatus.Registered : HotkeyStatus.InUseElsewhere;
-            if (ok) registered.Add(hotkey);
-            else Logger.Warn($"Shortcut {hotkey} for {action} is already in use");
+            registered.Add(hotkey);
+            if (NativeMethods.RegisterHotKey(_window.Handle, (int)action, ToModifiers(hotkey), (uint)hotkey.Code))
+            {
+                _status[action] = HotkeyStatus.Registered;
+            }
+            else
+            {
+                Logger.Warn($"Shortcut {hotkey} for {action} is already in use; overriding it with the keyboard hook");
+                hooked.Add((action, hotkey));
+            }
+        }
+
+        _hook.SetBindings(hooked);
+        _hook.Suspended = false;
+        foreach (var (action, _) in hooked)
+        {
+            _status[action] = _hook.IsInstalled ? HotkeyStatus.Overridden : HotkeyStatus.InUseElsewhere;
         }
         StatusChanged?.Invoke(_status);
     }
@@ -159,7 +183,7 @@ internal sealed class HotkeyService : IDisposable
 
         if (action == HotkeyAction.PushToTalk)
         {
-            if (_releaseTimer.IsEnabled)
+            if (_releaseTimer.IsEnabled || _hookPushToTalk)
             {
                 return true;
             }
@@ -169,6 +193,35 @@ internal sealed class HotkeyService : IDisposable
 
         Pressed?.Invoke(action);
         return true;
+    }
+
+    private void OnHookPressed(HotkeyAction action)
+    {
+        if (!_hotkeys.ContainsKey(action) || _status.GetValueOrDefault(action) != HotkeyStatus.Overridden)
+        {
+            return;
+        }
+
+        if (action == HotkeyAction.PushToTalk)
+        {
+            if (_releaseTimer.IsEnabled || _hookPushToTalk)
+            {
+                return;
+            }
+            // The hook swallows the key, so its state cannot be polled: the release comes from the hook.
+            _hookPushToTalk = true;
+        }
+
+        Pressed?.Invoke(action);
+    }
+
+    private void OnHookReleased(HotkeyAction action)
+    {
+        if (action == HotkeyAction.PushToTalk && _hookPushToTalk)
+        {
+            _hookPushToTalk = false;
+            PushToTalkReleased?.Invoke();
+        }
     }
 
     private void OnReleaseTimer(object? sender, EventArgs e)
@@ -185,10 +238,12 @@ internal sealed class HotkeyService : IDisposable
     {
         _releaseTimer.Stop();
         _pushToTalkKey = 0;
+        _hookPushToTalk = false;
     }
 
     public void Dispose()
     {
         UnregisterAll();
+        _hook.Dispose();
     }
 }
