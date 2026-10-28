@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1023"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.18" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.9" cy="0.95" r="0.55">
+      <stop offset="0" stop-color="#0EA5E9" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C7D2FE"/>
+    </linearGradient>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="256" y2="256">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="0.55" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="slash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A7A"/>
+      <stop offset="1" stop-color="#F43F5E"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="360" rx="28" fill="url(#sky)"/>
+  <rect width="1280" height="360" rx="28" fill="url(#glowA)"/>
+  <rect width="1280" height="360" rx="28" fill="url(#glowB)"/>
+
+  <!-- Logo (same drawing as logo.svg) -->
+  <g transform="translate(96 60) scale(0.9375)" filter="url(#shadow)">
+    <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+    <rect x="8" y="8" width="240" height="120" rx="56" fill="url(#shine)"/>
+    <rect x="38" y="80" width="132" height="98" rx="26" fill="#fff"/>
+    <path d="M176 112 L210 92 Q218 88 218 97 V161 Q218 170 210 166 L176 146 Z" fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="61" y="94" width="26" height="44" rx="13" fill="#4F46E5"/>
+    <path d="M50 124 a24 24 0 0 0 48 0" fill="none" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+    <line x1="74" y1="148" x2="74" y2="162" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+    <line x1="62" y1="163" x2="86" y2="163" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+    <line x1="58" y1="54" x2="202" y2="206" stroke="url(#bg)" stroke-width="34" stroke-linecap="round"/>
+    <line x1="58" y1="54" x2="202" y2="206" stroke="url(#slash)" stroke-width="16" stroke-linecap="round"/>
+  </g>
+
+  <g font-family="'Segoe UI Variable Display','Segoe UI',Inter,'Helvetica Neue',Arial,sans-serif">
+    <text x="420" y="146" font-size="104" font-weight="700" fill="url(#title)" letter-spacing="2">VCM</text>
+    <text x="424" y="196" font-size="36" font-weight="600" fill="#E0E7FF">Video Conference Mute for Windows</text>
+    <text x="424" y="240" font-size="26" fill="#A5B4FC">One shortcut. Microphone and camera off. In every app.</text>
+  </g>
+
+  <!-- Key caps -->
+  <g font-family="'Segoe UI',Inter,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle">
+    <rect x="424" y="266" width="76" height="44" rx="10" fill="#312E81" stroke="#6366F1" stroke-width="2"/>
+    <text x="462" y="295" fill="#E0E7FF">Win</text>
+    <text x="516" y="296" fill="#A5B4FC" font-size="24">+</text>
+    <rect x="532" y="266" width="86" height="44" rx="10" fill="#312E81" stroke="#6366F1" stroke-width="2"/>
+    <text x="575" y="295" fill="#E0E7FF">Shift</text>
+    <text x="634" y="296" fill="#A5B4FC" font-size="24">+</text>
+    <rect x="650" y="266" width="50" height="44" rx="10" fill="#4F46E5" stroke="#A5B4FC" stroke-width="2"/>
+    <text x="675" y="295" fill="#FFFFFF">Q</text>
+  </g>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="256" y2="256">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="0.55" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="slash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A7A"/>
+      <stop offset="1" stop-color="#F43F5E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="8" y="8" width="240" height="120" rx="56" fill="url(#shine)"/>
+
+  <!-- Camera body and lens -->
+  <rect x="38" y="80" width="132" height="98" rx="26" fill="#fff"/>
+  <path d="M176 112 L210 92 Q218 88 218 97 V161 Q218 170 210 166 L176 146 Z" fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Microphone inside the camera -->
+  <rect x="61" y="94" width="26" height="44" rx="13" fill="#4F46E5"/>
+  <path d="M50 124 a24 24 0 0 0 48 0" fill="none" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+  <line x1="74" y1="148" x2="74" y2="162" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+  <line x1="62" y1="163" x2="86" y2="163" stroke="#4F46E5" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Mute slash, cut out of the tile -->
+  <line x1="58" y1="54" x2="202" y2="206" stroke="url(#bg)" stroke-width="34" stroke-linecap="round"/>
+  <line x1="58" y1="54" x2="202" y2="206" stroke="url(#slash)" stroke-width="16" stroke-linecap="round"/>
+</svg>
