@@ -1,0 +1,30 @@
+# MSVC + Windows SDK on Linux via wine (https://github.com/mstorsjo/msvc-wine).
+# Building this image downloads Visual Studio Build Tools and accepts the Microsoft license
+# (https://go.microsoft.com/fwlink/?LinkId=2086102). The resulting image is not redistributable.
+FROM ubuntu:24.04
+
+ARG MSVC_WINE_COMMIT=514f8ea34842cd6d831804d0e9658d3a32870ae1
+ARG WIL_TAG=v1.0.260126.7
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wine64 wine python3 msitools ca-certificates winbind \
+        git cmake ninja-build procps && \
+    apt-get clean -y && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/mstorsjo/msvc-wine /tmp/msvc-wine && \
+    git -C /tmp/msvc-wine checkout ${MSVC_WINE_COMMIT} && \
+    cd /tmp/msvc-wine && \
+    PYTHONUNBUFFERED=1 ./vsdownload.py --accept-license --architecture x64 --dest /opt/msvc && \
+    ./install.sh /opt/msvc && \
+    cp msvcenv-native.sh /opt/msvc/ && \
+    rm -rf /tmp/msvc-wine
+
+RUN git clone --depth 1 --branch ${WIL_TAG} https://github.com/microsoft/wil /opt/wil
+
+# The build runs as uid 1000 (the "ubuntu" user of the base image) so output files keep the host owner.
+USER ubuntu
+ENV WINEDEBUG=-all
+RUN $(command -v wine64 || command -v wine) wineboot --init && while pgrep wineserver > /dev/null; do sleep 1; done
+
+ENV PATH=/opt/msvc/bin/x64:$PATH
+WORKDIR /src

@@ -1,0 +1,7 @@
+bin/
+obj/
+out/
+.cache/
+.vs/
+*.user
+build/cmake-*/
