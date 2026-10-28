@@ -38,11 +38,12 @@ namespace vcm
 
     private:
         HRESULT CheckShutdown() const;
-        HRESULT StartInternal(IMFMediaType* type, bool sendEvent);
+        HRESULT StartInternal(std::unique_lock<std::mutex>& lock, IMFMediaType* type, bool sendEvent);
         void StopInternal();
         void StartPump();
         void StopPump(std::unique_lock<std::mutex>& lock);
-        void Pump(VideoFormat format, Microsoft::WRL::ComPtr<IMFVideoSampleAllocator> allocator);
+        void WaitForPumpStopped(std::unique_lock<std::mutex>& lock);
+        void Pump(VideoFormat format, Microsoft::WRL::ComPtr<IMFVideoSampleAllocator> allocator, std::shared_ptr<wil::unique_event> stop);
         bool Deliver(IMFVideoSampleAllocator* allocator, const VideoFormat& format, IMFSample* cameraFrame,
             const std::vector<uint8_t>* overlay);
 
@@ -60,8 +61,14 @@ namespace vcm
         DWORD m_streamId = 0;
         std::wstring m_initialLink;
 
+        // Each pump has its own stop event; m_pumpStopping is set while a pump is being joined without the lock,
+        // so that a concurrent start waits instead of starting a second pump.
         std::thread m_pump;
-        wil::unique_event m_stopPump;
+        std::shared_ptr<wil::unique_event> m_stopPump;
+        bool m_pumpStopping = false;
+        std::condition_variable m_pumpStopped;
+        Microsoft::WRL::ComPtr<IMFMediaType> m_pumpType;
+        Microsoft::WRL::ComPtr<IMFVideoSampleAllocator> m_pumpAllocator;
         wil::unique_event m_wake;
     };
 }

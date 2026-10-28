@@ -127,6 +127,7 @@ namespace vcm
                     if (SUCCEEDED(m_buffer2D->Lock2DSize(write ? MF2DBuffer_LockFlags_Write : MF2DBuffer_LockFlags_Read, &m_scanline0,
                         &m_pitch, &start, &length)))
                     {
+                        m_available = static_cast<size_t>(start + length - m_scanline0);
                         return S_OK;
                     }
                     m_buffer2D.Reset();
@@ -135,6 +136,7 @@ namespace vcm
                 DWORD maxLength = 0, currentLength = 0;
                 RETURN_IF_FAILED(buffer->Lock(&m_scanline0, &maxLength, &currentLength));
                 m_pitch = defaultPitch;
+                m_available = write ? maxLength : currentLength;
                 m_locked = true;
                 return S_OK;
             }
@@ -148,11 +150,19 @@ namespace vcm
             BYTE* Data() const { return m_scanline0; }
             LONG Pitch() const { return m_pitch; }
 
+            // True when an NV12 picture of the given height fits in the locked memory.
+            bool Holds(UINT32 width, UINT32 height) const
+            {
+                return m_pitch >= static_cast<LONG>(width) &&
+                    m_available >= static_cast<size_t>(m_pitch) * height + static_cast<size_t>(m_pitch) * (height / 2 - 1) + width;
+            }
+
         private:
             IMFMediaBuffer* m_buffer = nullptr;
             ComPtr<IMF2DBuffer2> m_buffer2D;
             BYTE* m_scanline0 = nullptr;
             LONG m_pitch = 0;
+            size_t m_available = 0;
             bool m_locked = false;
         };
     }
@@ -161,15 +171,18 @@ namespace vcm
     {
         ComPtr<IMFMediaBuffer> buffer;
         RETURN_IF_FAILED(destination->GetBufferByIndex(0, &buffer));
+        DWORD length = 0;
         {
             LockedBuffer target;
             RETURN_IF_FAILED(target.Lock(buffer.Get(), static_cast<LONG>(width), true));
+            RETURN_HR_IF(MF_E_BUFFERTOOSMALL, !target.Holds(width, height));
             // NV12: luma rows followed by interleaved chroma rows (height / 2) with the same pitch.
             RETURN_IF_FAILED(MFCopyImage(target.Data(), target.Pitch(), source, sourcePitch, width, height));
             RETURN_IF_FAILED(MFCopyImage(target.Data() + static_cast<ptrdiff_t>(target.Pitch()) * height, target.Pitch(),
                 source + static_cast<ptrdiff_t>(sourcePitch) * height, sourcePitch, width, height / 2));
+            length = static_cast<DWORD>(target.Pitch()) * height * 3 / 2;
         }
-        RETURN_IF_FAILED(buffer->SetCurrentLength(width * height * 3 / 2));
+        RETURN_IF_FAILED(buffer->SetCurrentLength(length));
         return S_OK;
     }
 
@@ -179,6 +192,7 @@ namespace vcm
         RETURN_IF_FAILED(source->ConvertToContiguousBuffer(&buffer));
         LockedBuffer input;
         RETURN_IF_FAILED(input.Lock(buffer.Get(), static_cast<LONG>(width), false));
+        RETURN_HR_IF(MF_E_BUFFERTOOSMALL, !input.Holds(width, height));
         return CopyNv12ToSample(input.Data(), input.Pitch(), width, height, destination);
     }
 }

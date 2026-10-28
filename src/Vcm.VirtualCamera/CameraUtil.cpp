@@ -6,6 +6,7 @@ namespace vcm
     namespace
     {
         constexpr double MinimumFps = 15.0;
+        constexpr double MaximumLegacyFps = 30.0 + 0.01;
 
         std::wstring GetString(IMFActivate* activate, REFGUID key)
         {
@@ -121,13 +122,22 @@ namespace vcm
                     continue;
                 }
 
+                // Per resolution keep the highest rate up to 30 fps (the legacy camera profile, used by most apps,
+                // filters out faster types); if a size only exists above 30 fps keep its slowest rate.
+                auto better = [](const VideoFormat& candidate, const VideoFormat& current)
+                {
+                    bool candidateLegacy = candidate.Fps() <= MaximumLegacyFps;
+                    bool currentLegacy = current.Fps() <= MaximumLegacyFps;
+                    if (candidateLegacy != currentLegacy) return candidateLegacy;
+                    return candidateLegacy ? candidate.Fps() > current.Fps() : candidate.Fps() < current.Fps();
+                };
                 auto existing = std::find_if(formats.begin(), formats.end(),
                     [&](const VideoFormat& f) { return f.width == format.width && f.height == format.height; });
                 if (existing == formats.end())
                 {
                     formats.push_back(format);
                 }
-                else if (format.Fps() > existing->Fps())
+                else if (better(format, *existing))
                 {
                     *existing = format;
                 }
@@ -140,8 +150,11 @@ namespace vcm
             return DefaultFormats();
         }
 
+        // Largest legacy-compatible format first: it becomes the default media type.
         std::sort(formats.begin(), formats.end(), [](const VideoFormat& a, const VideoFormat& b)
         {
+            bool aLegacy = a.Fps() <= MaximumLegacyFps, bLegacy = b.Fps() <= MaximumLegacyFps;
+            if (aLegacy != bLegacy) return aLegacy;
             return static_cast<UINT64>(a.width) * a.height > static_cast<UINT64>(b.width) * b.height;
         });
         constexpr size_t MaxFormats = 16;

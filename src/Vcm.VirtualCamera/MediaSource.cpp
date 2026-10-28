@@ -32,7 +32,7 @@ namespace vcm
         m_pipeReferenced = true;
         bool connected = PipeClient::Instance().WaitForState(StateWaitMs);
         std::wstring link = PipeClient::Instance().GetState().sourceLink;
-        if (link.empty() && activateAttributes)
+        if ((link.empty() || IsVirtualCamera(link)) && activateAttributes)
         {
             wil::unique_cotaskmem_string value;
             UINT32 length = 0;
@@ -41,7 +41,7 @@ namespace vcm
                 link = value.get();
             }
         }
-        if (link.empty())
+        if (link.empty() || IsVirtualCamera(link))
         {
             link = FindFirstPhysicalCamera();
         }
@@ -51,11 +51,14 @@ namespace vcm
         RETURN_IF_FAILED(CreateSourceAttributes(activateAttributes));
         RETURN_IF_FAILED(MFCreateEventQueue(&m_eventQueue));
         RETURN_IF_FAILED(MakeAndInitialize<MediaStream>(&m_stream, this, StreamId, GetOutputFormats(link), link));
+        // On failure, break the stream -> source reference cycle so both are released.
+        auto shutdownStream = wil::scope_exit([&] { m_stream->Shutdown(); m_stream.Reset(); });
 
         ComPtr<IMFStreamDescriptor> descriptor;
         RETURN_IF_FAILED(m_stream->GetStreamDescriptor(&descriptor));
         IMFStreamDescriptor* descriptors[] = { descriptor.Get() };
         RETURN_IF_FAILED(MFCreatePresentationDescriptor(1, descriptors, &m_presentation));
+        shutdownStream.release();
 
         m_state = State::Stopped;
         return S_OK;

@@ -34,11 +34,15 @@ namespace vcm
 
     void PipeClient::AddRef()
     {
-        std::lock_guard lock(m_lock);
+        std::unique_lock lock(m_lock);
+        m_stopped.wait(lock, [this] { return !m_stopping; });
         if (m_refs++ == 0)
         {
-            m_stop.create(wil::EventOptions::ManualReset);
-            m_thread = std::thread([this] { Run(); });
+            m_state = {};
+            m_stateReceived = false;
+            auto stop = std::make_shared<wil::unique_event>(wil::EventOptions::ManualReset);
+            m_stop = stop;
+            m_thread = std::thread([this, stop] { Run(stop->get()); });
         }
     }
 
@@ -51,8 +55,9 @@ namespace vcm
             {
                 return;
             }
-            m_stop.SetEvent();
+            m_stop->SetEvent();
             thread = std::move(m_thread);
+            m_stopping = true;
         }
 
         if (thread.joinable())
@@ -60,9 +65,12 @@ namespace vcm
             thread.join();
         }
 
-        std::lock_guard lock(m_lock);
-        m_state.connected = false;
-        m_stateReceived = false;
+        {
+            std::lock_guard lock(m_lock);
+            m_stopping = false;
+            m_stop.reset();
+        }
+        m_stopped.notify_all();
     }
 
     bool PipeClient::IsRunning()
@@ -91,33 +99,45 @@ namespace vcm
 
     void PipeClient::StreamStarted()
     {
-        bool notify;
+        bool changed;
         {
             std::lock_guard lock(m_lock);
-            notify = m_streaming++ == 0;
+            changed = m_streaming++ == 0;
         }
-        if (notify) SendInUse(true);
+        if (changed) SendCurrentInUse();
     }
 
     void PipeClient::StreamStopped()
     {
-        bool notify;
+        bool changed;
         {
             std::lock_guard lock(m_lock);
             if (m_streaming == 0) return;
-            notify = --m_streaming == 0;
+            changed = --m_streaming == 0;
         }
-        if (notify) SendInUse(false);
+        if (changed) SendCurrentInUse();
     }
 
-    void PipeClient::SendInUse(bool inUse)
+    // The value is read under the write lock, so concurrent senders can only ever write the latest state last.
+    void PipeClient::SendCurrentInUse()
     {
-        Send(Frame(protocol::MessageType::InUse, { static_cast<uint8_t>(inUse ? 1 : 0) }));
+        std::lock_guard writeLock(m_writeLock);
+        bool inUse;
+        {
+            std::lock_guard lock(m_lock);
+            inUse = m_streaming > 0;
+        }
+        SendLocked(Frame(protocol::MessageType::InUse, { static_cast<uint8_t>(inUse ? 1 : 0) }));
     }
 
     void PipeClient::Send(const std::vector<uint8_t>& message)
     {
         std::lock_guard lock(m_writeLock);
+        SendLocked(message);
+    }
+
+    void PipeClient::SendLocked(const std::vector<uint8_t>& message)
+    {
         if (!m_pipe)
         {
             return; // the current state is sent again after (re)connecting
@@ -139,15 +159,17 @@ namespace vcm
         }
     }
 
-    void PipeClient::Run()
+    void PipeClient::Run(HANDLE stop)
     {
         auto coInit = wil::CoInitializeEx(COINIT_MULTITHREADED);
         DWORD lastError = 0;
 
-        while (WaitForSingleObject(m_stop.get(), 0) != WAIT_OBJECT_0)
+        while (WaitForSingleObject(stop, 0) != WAIT_OBJECT_0)
         {
-            wil::unique_hfile pipe(CreateFileW(protocol::PipePath, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
-                FILE_FLAG_OVERLAPPED, nullptr));
+            // FILE_WRITE_DATA rather than GENERIC_WRITE: the latter also asks for FILE_CREATE_PIPE_INSTANCE, which the
+            // app's pipe ACL does not grant. Identification-level SQOS: the app must not impersonate this service.
+            wil::unique_hfile pipe(CreateFileW(protocol::PipePath, GENERIC_READ | FILE_WRITE_DATA, 0, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr));
             if (!pipe)
             {
                 DWORD error = GetLastError();
@@ -163,7 +185,7 @@ namespace vcm
                 }
                 else
                 {
-                    WaitForSingleObject(m_stop.get(), 1000);
+                    WaitForSingleObject(stop, 1000);
                 }
                 continue;
             }
@@ -179,14 +201,9 @@ namespace vcm
             PutU32(hello, protocol::Version);
             PutU32(hello, GetCurrentProcessId());
             Send(Frame(protocol::MessageType::Hello, hello));
-            bool streaming;
-            {
-                std::lock_guard lock(m_lock);
-                streaming = m_streaming > 0;
-            }
-            SendInUse(streaming);
+            SendCurrentInUse();
 
-            RunSession(pipe.get());
+            RunSession(pipe.get(), stop);
 
             {
                 std::lock_guard lock(m_writeLock);
@@ -197,14 +214,14 @@ namespace vcm
                 m_state.connected = false;
             }
             VCM_LOG(L"Disconnected from the VCM app");
-            WaitForSingleObject(m_stop.get(), 500);
+            WaitForSingleObject(stop, 500);
         }
     }
 
-    bool PipeClient::RunSession(HANDLE pipe)
+    bool PipeClient::RunSession(HANDLE pipe, HANDLE stop)
     {
         uint8_t header[protocol::HeaderSize];
-        while (ReadExact(pipe, header, protocol::HeaderSize))
+        while (ReadExact(pipe, stop, header, protocol::HeaderSize))
         {
             auto type = static_cast<protocol::MessageType>(GetU32(header));
             uint32_t length = GetU32(header + 4);
@@ -215,7 +232,7 @@ namespace vcm
             }
 
             std::vector<uint8_t> payload(length);
-            if (length > 0 && !ReadExact(pipe, payload.data(), length))
+            if (length > 0 && !ReadExact(pipe, stop, payload.data(), length))
             {
                 return false;
             }
@@ -224,7 +241,7 @@ namespace vcm
         return false;
     }
 
-    bool PipeClient::ReadExact(HANDLE pipe, uint8_t* buffer, uint32_t size)
+    bool PipeClient::ReadExact(HANDLE pipe, HANDLE stop, uint8_t* buffer, uint32_t size)
     {
         wil::unique_event done(wil::EventOptions::ManualReset);
         uint32_t total = 0;
@@ -239,7 +256,7 @@ namespace vcm
                 return false;
             }
 
-            HANDLE handles[] = { done.get(), m_stop.get() };
+            HANDLE handles[] = { done.get(), stop };
             if (WaitForMultipleObjects(2, handles, FALSE, INFINITE) != WAIT_OBJECT_0)
             {
                 CancelIoEx(pipe, &overlapped);

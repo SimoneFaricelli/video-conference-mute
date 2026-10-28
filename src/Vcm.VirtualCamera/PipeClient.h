@@ -58,11 +58,12 @@ namespace vcm
     private:
         PipeClient() = default;
 
-        void Run();
-        bool RunSession(HANDLE pipe);
-        bool ReadExact(HANDLE pipe, uint8_t* buffer, uint32_t size);
+        void Run(HANDLE stop);
+        bool RunSession(HANDLE pipe, HANDLE stop);
+        bool ReadExact(HANDLE pipe, HANDLE stop, uint8_t* buffer, uint32_t size);
         void Send(const std::vector<uint8_t>& message);
-        void SendInUse(bool inUse);
+        void SendLocked(const std::vector<uint8_t>& message);
+        void SendCurrentInUse();
         void HandleMessage(protocol::MessageType type, const std::vector<uint8_t>& payload);
 
         std::mutex m_lock;
@@ -73,7 +74,9 @@ namespace vcm
         bool m_stateReceived = false;
         std::shared_ptr<const OverlayImage> m_overlay = std::make_shared<OverlayImage>();
         std::thread m_thread;
-        wil::unique_event m_stop;
+        std::shared_ptr<wil::unique_event> m_stop; // one per thread, so a restart never reuses a waited-on handle
+        bool m_stopping = false;                    // set while Release() joins the thread without the lock
+        std::condition_variable m_stopped;
 
         std::mutex m_writeLock;
         HANDLE m_pipe = nullptr; // guarded by m_writeLock

@@ -38,11 +38,21 @@ internal sealed class CameraPipeServer : IDisposable
         _ = Task.Run(AcceptLoopAsync);
     }
 
-    public void UpdateState(byte[] stateMessage) => Broadcast(() => _stateMessage = stateMessage, stateMessage);
+    public void UpdateState(byte[] stateMessage) => Broadcast(() => _stateMessage = stateMessage, CurrentState);
 
-    public void UpdateOverlay(byte[] overlayMessage) => Broadcast(() => _overlayMessage = overlayMessage, overlayMessage);
+    public void UpdateOverlay(byte[] overlayMessage) => Broadcast(() => _overlayMessage = overlayMessage, CurrentOverlay);
 
-    private void Broadcast(Action store, byte[] message)
+    private byte[] CurrentState()
+    {
+        lock (_gate) return _stateMessage;
+    }
+
+    private byte[] CurrentOverlay()
+    {
+        lock (_gate) return _overlayMessage;
+    }
+
+    private void Broadcast(Action store, Func<byte[]> current)
     {
         List<Client> clients;
         lock (_gate)
@@ -53,7 +63,7 @@ internal sealed class CameraPipeServer : IDisposable
 
         foreach (var client in clients)
         {
-            _ = client.SendAsync(message);
+            _ = client.SendAsync(current);
         }
     }
 
@@ -97,17 +107,16 @@ internal sealed class CameraPipeServer : IDisposable
             }
 
             var client = new Client(pipe);
-            byte[] state, overlay;
             lock (_gate)
             {
                 _clients.Add(client);
-                state = _stateMessage;
-                overlay = _overlayMessage;
             }
 
             Logger.Info("Virtual camera connected to the pipe");
-            _ = client.SendAsync(state);
-            _ = client.SendAsync(overlay);
+            // Messages are produced when written, so a mute change racing with the connection is never overwritten
+            // by an older state.
+            _ = client.SendAsync(CurrentState);
+            _ = client.SendAsync(CurrentOverlay);
             _ = Task.Run(() => ReadLoopAsync(client));
         }
     }
@@ -172,6 +181,20 @@ internal sealed class CameraPipeServer : IDisposable
         {
             security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(sid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
         }
+
+        // The Frame Server may run with a restricted token where only its service SID is usable.
+        foreach (string service in new[] { @"NT SERVICE\FrameServer", @"NT SERVICE\FrameServerMonitor" })
+        {
+            try
+            {
+                var sid = (SecurityIdentifier)new NTAccount(service).Translate(typeof(SecurityIdentifier));
+                security.AddAccessRule(new PipeAccessRule(sid, PipeAccessRights.ReadWrite, AccessControlType.Allow));
+            }
+            catch (IdentityNotMappedException)
+            {
+                // Service not present on this system.
+            }
+        }
         return security;
     }
 
@@ -204,12 +227,12 @@ internal sealed class CameraPipeServer : IDisposable
 
         public bool InUse { get; set; }
 
-        public async Task SendAsync(byte[] message)
+        public async Task SendAsync(Func<byte[]> message)
         {
             await _writeLock.WaitAsync();
             try
             {
-                await Pipe.WriteAsync(message);
+                await Pipe.WriteAsync(message());
                 await Pipe.FlushAsync();
             }
             catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)

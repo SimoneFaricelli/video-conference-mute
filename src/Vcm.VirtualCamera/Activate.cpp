@@ -18,12 +18,12 @@ namespace vcm
         RETURN_HR_IF_NULL(E_POINTER, object);
         *object = nullptr;
 
+        // A new source for every activation, as in the sample: a cached one may already have been shut down.
+        ComPtr<MediaSource> source;
+        RETURN_IF_FAILED(MakeAndInitialize<MediaSource>(&source, m_attributes.Get()));
         std::lock_guard lock(m_lock);
-        if (!m_source)
-        {
-            RETURN_IF_FAILED(MakeAndInitialize<MediaSource>(&m_source, m_attributes.Get()));
-        }
-        return m_source->QueryInterface(riid, object);
+        m_source = source;
+        return source->QueryInterface(riid, object);
     }
 
     IFACEMETHODIMP Activate::ShutdownObject()

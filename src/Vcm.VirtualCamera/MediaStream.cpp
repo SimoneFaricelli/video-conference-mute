@@ -26,7 +26,8 @@ namespace vcm
             RETURN_IF_FAILED(MFSetAttributeSize(type.Get(), MF_MT_FRAME_SIZE, format.width, format.height));
             RETURN_IF_FAILED(MFSetAttributeRatio(type.Get(), MF_MT_FRAME_RATE, format.fpsNumerator, format.fpsDenominator));
             RETURN_IF_FAILED(MFSetAttributeRatio(type.Get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1));
-            RETURN_IF_FAILED(type->SetUINT32(MF_MT_AVG_BITRATE, static_cast<UINT32>(format.width * format.height * 12 * format.Fps())));
+            double bitrate = static_cast<double>(format.width) * format.height * 12 * format.Fps();
+            RETURN_IF_FAILED(type->SetUINT32(MF_MT_AVG_BITRATE, static_cast<UINT32>(std::min<double>(bitrate, UINT32_MAX))));
             *result = type.Detach();
             return S_OK;
         }
@@ -59,7 +60,6 @@ namespace vcm
         m_parent = parent;
         m_streamId = streamId;
         m_initialLink = initialLink;
-        m_stopPump.create(wil::EventOptions::ManualReset);
         m_wake.create(wil::EventOptions::None);
 
         std::vector<ComPtr<IMFMediaType>> types;
@@ -166,7 +166,7 @@ namespace vcm
             m_state = MF_STREAM_STATE_PAUSED;
             return S_OK;
         case MF_STREAM_STATE_RUNNING:
-            return StartInternal(nullptr, false);
+            return StartInternal(lock, nullptr, false);
         case MF_STREAM_STATE_STOPPED:
             StopInternal();
             StopPump(lock);
@@ -190,27 +190,30 @@ namespace vcm
         RETURN_HR_IF_NULL(E_INVALIDARG, type);
         std::unique_lock lock(m_lock);
         RETURN_IF_FAILED(CheckShutdown());
-
-        BOOL same = FALSE;
-        if (m_mediaType && m_state == MF_STREAM_STATE_RUNNING &&
-            SUCCEEDED(m_mediaType->Compare(type, MF_ATTRIBUTES_MATCH_ALL_ITEMS, &same)) && !same)
-        {
-            // New format: restart the pump so the camera is reopened at the new size.
-            StopPump(lock);
-            m_state = MF_STREAM_STATE_STOPPED;
-        }
-        return StartInternal(type, true);
+        return StartInternal(lock, type, true);
     }
 
-    HRESULT MediaStream::StartInternal(IMFMediaType* type, bool sendEvent)
+    HRESULT MediaStream::StartInternal(std::unique_lock<std::mutex>& lock, IMFMediaType* type, bool sendEvent)
     {
+        WaitForPumpStopped(lock);
+        RETURN_IF_FAILED(CheckShutdown());
         if (type)
         {
             m_mediaType = type;
         }
         RETURN_HR_IF_NULL(MF_E_NOT_INITIALIZED, m_mediaType);
 
-        if (m_state != MF_STREAM_STATE_RUNNING && !m_pump.joinable())
+        // A pump running (or paused) with another format or allocator is restarted so the camera is reopened.
+        BOOL sameType = FALSE;
+        if (m_pump.joinable() &&
+            (m_pumpAllocator != m_allocator ||
+             FAILED(m_pumpType->Compare(m_mediaType.Get(), MF_ATTRIBUTES_MATCH_ALL_ITEMS, &sameType)) || !sameType))
+        {
+            StopPump(lock);
+            RETURN_IF_FAILED(CheckShutdown());
+        }
+
+        if (!m_pump.joinable())
         {
             if (!m_allocator)
             {
@@ -267,6 +270,7 @@ namespace vcm
         }
         StopInternal();
         StopPump(lock);
+        WaitForPumpStopped(lock);
         m_shutdown = true;
         if (m_eventQueue)
         {
@@ -288,10 +292,13 @@ namespace vcm
 
     void MediaStream::StartPump()
     {
-        m_stopPump.ResetEvent();
-        m_pump = std::thread([this, format = FormatOf(m_mediaType.Get()), allocator = m_allocator]
+        auto stop = std::make_shared<wil::unique_event>(wil::EventOptions::ManualReset);
+        m_stopPump = stop;
+        m_pumpType = m_mediaType;
+        m_pumpAllocator = m_allocator;
+        m_pump = std::thread([this, format = FormatOf(m_mediaType.Get()), allocator = m_allocator, stop]
         {
-            Pump(format, allocator);
+            Pump(format, allocator, stop);
         });
     }
 
@@ -301,15 +308,25 @@ namespace vcm
         {
             return;
         }
-        m_stopPump.SetEvent();
+        m_stopPump->SetEvent();
         std::thread pump = std::move(m_pump);
+        m_pumpStopping = true;
         // The pump takes m_lock to deliver samples; release it while waiting.
         lock.unlock();
         pump.join();
         lock.lock();
+        m_pumpStopping = false;
+        m_pumpType.Reset();
+        m_pumpAllocator.Reset();
+        m_pumpStopped.notify_all();
     }
 
-    void MediaStream::Pump(VideoFormat format, ComPtr<IMFVideoSampleAllocator> allocator)
+    void MediaStream::WaitForPumpStopped(std::unique_lock<std::mutex>& lock)
+    {
+        m_pumpStopped.wait(lock, [this] { return !m_pumpStopping; });
+    }
+
+    void MediaStream::Pump(VideoFormat format, ComPtr<IMFVideoSampleAllocator> allocator, std::shared_ptr<wil::unique_event> stop)
     {
         auto coInit = wil::CoInitializeEx(COINIT_MULTITHREADED);
         VCM_LOG(L"Streaming %ux%u@%.2f", format.width, format.height, format.Fps());
@@ -320,9 +337,10 @@ namespace vcm
         const ULONGLONG intervalMs = std::max<ULONGLONG>(1, static_cast<ULONGLONG>(format.FrameDuration() / 10'000));
         ULONGLONG lastDelivery = 0;
         ULONGLONG nextOpenAttempt = 0;
+        ULONGLONG nextCameraSearch = 0;
         bool lastMuted = false;
 
-        HANDLE handles[] = { m_stopPump.get(), frameEvent.get(), m_wake.get() };
+        HANDLE handles[] = { stop->get(), frameEvent.get(), m_wake.get() };
         for (;;)
         {
             DWORD wait = WaitForMultipleObjects(ARRAYSIZE(handles), handles, FALSE, 15);
@@ -333,11 +351,17 @@ namespace vcm
 
             ULONGLONG now = GetTickCount64();
             CameraState state = PipeClient::Instance().GetState();
-            std::wstring link = !state.sourceLink.empty() ? state.sourceLink : m_initialLink;
-            if (link.empty())
+            // Never wrap a virtual camera (including this one): that would make the source open itself.
+            std::wstring link = !state.sourceLink.empty() && !IsVirtualCamera(state.sourceLink) ? state.sourceLink : m_initialLink;
+            if (IsVirtualCamera(link))
+            {
+                link.clear();
+            }
+            if (link.empty() && now >= nextCameraSearch)
             {
                 link = FindFirstPhysicalCamera();
                 m_initialLink = link;
+                nextCameraSearch = now + ReopenDelayMs;
             }
 
             if (state.muted != lastMuted)
@@ -415,10 +439,16 @@ namespace vcm
         if (SUCCEEDED(hr) && token) hr = sample->SetUnknown(MFSampleExtension_Token, token.Get());
 
         std::lock_guard lock(m_lock);
+        if (hr == MF_E_SAMPLEALLOCATOR_EMPTY)
+        {
+            // The client still holds every buffer: retry with the next frame.
+            if (m_state == MF_STREAM_STATE_RUNNING) m_requests.push_front(std::move(token));
+            return false;
+        }
         if (FAILED(hr))
         {
-            // Typically MF_E_SAMPLEALLOCATOR_EMPTY: the client still holds every buffer. Retry with the next frame.
-            if (m_state == MF_STREAM_STATE_RUNNING) m_requests.push_front(std::move(token));
+            // Drop this request rather than retrying forever; the next request gets a fresh attempt.
+            VCM_LOG(L"Frame delivery failed: 0x%08X", hr);
             return false;
         }
         if (m_shutdown || m_state != MF_STREAM_STATE_RUNNING)
