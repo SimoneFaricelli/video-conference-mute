@@ -189,7 +189,8 @@ internal sealed class AppController : IDisposable
 
         bool micMuted = _running && _engine.MicrophoneMuted;
         bool cameraMuted = _running && _engine.CameraEffectivelyMuted;
-        int size = Math.Max(16, NativeMethods.GetSystemMetrics(49 /* SM_CXSMICON */) * (int)NativeMethods.GetDpiForWindow(_messageWindow.Handle) / 96);
+        const int SM_CXSMICON = 49;
+        int size = Math.Max(16, NativeMethods.GetSystemMetricsForDpi(SM_CXSMICON, NativeMethods.GetDpiForWindow(_messageWindow.Handle)));
         IntPtr icon = TrayIconRenderer.Create(_settings.TrayIconShowsState && _running, micMuted, cameraMuted, !_running, size);
 
         string tooltip = !_running

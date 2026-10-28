@@ -69,7 +69,7 @@ internal static partial class NativeMethods
     public static extern uint RegisterWindowMessage(string message);
 
     [DllImport("user32.dll")]
-    public static extern int GetSystemMetrics(int index);
+    public static extern int GetSystemMetricsForDpi(int index, uint dpi);
 
     [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr hWnd);

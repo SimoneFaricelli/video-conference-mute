@@ -1,0 +1,10 @@
+LIBRARY VcmVirtualCamera
+EXPORTS
+    DllGetClassObject           PRIVATE
+    DllCanUnloadNow             PRIVATE
+    DllRegisterServer           PRIVATE
+    DllUnregisterServer         PRIVATE
+    VcmCam_IsSupported
+    VcmCam_Start
+    VcmCam_Stop
+    VcmCam_EnumerateCameras
