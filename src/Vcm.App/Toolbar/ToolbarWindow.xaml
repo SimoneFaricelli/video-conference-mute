@@ -1,0 +1,23 @@
+<Window x:Class="Vcm.App.Toolbar.ToolbarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="VCM Toolbar"
+        Width="322" Height="44"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" ShowActivated="False" Topmost="True" Focusable="False"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" Cursor="Hand">
+    <!-- Same layout as the original 322x44 toolbar images: microphone | divider | camera. -->
+    <Border x:Name="Root" BorderThickness="1" Background="#1F1F1F" BorderBrush="#313131"
+            TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
+        <Canvas>
+            <ui:SymbolIcon x:Name="MicIcon" Symbol="Mic24" FontSize="16" Canvas.Left="11" Canvas.Top="13" Foreground="White" />
+            <TextBlock x:Name="MicLabel" Canvas.Left="37" Canvas.Top="12" FontFamily="Segoe UI" FontSize="12" Foreground="White"
+                       Width="118" TextTrimming="CharacterEllipsis" />
+            <Rectangle x:Name="Divider" Width="1" Height="24" Canvas.Left="160" Canvas.Top="9" Fill="#313131" />
+            <ui:SymbolIcon x:Name="CameraIcon" Symbol="Video24" FontSize="16" Canvas.Left="172" Canvas.Top="13" Foreground="White" />
+            <TextBlock x:Name="CameraLabel" Canvas.Left="199" Canvas.Top="12" FontFamily="Segoe UI" FontSize="12" Foreground="White"
+                       Width="116" TextTrimming="CharacterEllipsis" />
+        </Canvas>
+    </Border>
+</Window>

@@ -1,0 +1,309 @@
+<ui:FluentWindow x:Class="Vcm.App.UI.SettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:l="clr-namespace:Vcm.App.Localization"
+                 xmlns:local="clr-namespace:Vcm.App.UI"
+                 xmlns:core="clr-namespace:Vcm.Core;assembly=Vcm.Core"
+                 Title="{l:Loc AppName}"
+                 Width="920" Height="900" MinWidth="560" MinHeight="480"
+                 WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 WindowCornerPreference="Round"
+                 Icon="pack://application:,,,/Assets/VCM.ico">
+    <ui:FluentWindow.Resources>
+        <!-- PowerToys SettingsCard look: header + optional description, control on the right. -->
+        <Style x:Key="CardHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <Style x:Key="CardDescription" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="CardWarning" TargetType="TextBlock" BasedOn="{StaticResource CardDescription}">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+                <Trigger Property="Text" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="GroupHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="1,30,0,8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <Style TargetType="ui:CardControl" BasedOn="{StaticResource {x:Type ui:CardControl}}">
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+        <Style TargetType="ui:CardExpander" BasedOn="{StaticResource {x:Type ui:CardExpander}}">
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+        <Style x:Key="SettingsCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinWidth" Value="240" />
+            <Setter Property="SelectedValuePath" Value="Value" />
+            <Setter Property="DisplayMemberPath" Value="Display" />
+        </Style>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{l:Loc AppName}" ShowMaximize="True">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/VideoConferenceMute.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel MaxWidth="1000" Margin="40,4,40,40">
+
+                <!-- Page header -->
+                <TextBlock Text="{l:Loc ModuleTitle}" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,20"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Grid Margin="0,0,0,24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border CornerRadius="8" ClipToBounds="True" Width="220" Margin="0,0,24,0" VerticalAlignment="Top">
+                        <Border.OpacityMask>
+                            <VisualBrush>
+                                <VisualBrush.Visual>
+                                    <Border Width="220" Height="146" CornerRadius="8" Background="Black" />
+                                </VisualBrush.Visual>
+                            </VisualBrush>
+                        </Border.OpacityMask>
+                        <Image Source="pack://application:,,,/Assets/VideoConference.png" Stretch="UniformToFill" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{l:Loc ModuleDescription}" TextWrapping="Wrap" FontSize="14"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:HyperlinkButton Content="{l:Loc LearnMore}" NavigateUri="https://aka.ms/PowerToysOverview_VideoConference"
+                                            Padding="0" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Enable -->
+                <ui:CardControl>
+                    <ui:CardControl.Icon>
+                        <ui:ImageIcon Source="pack://application:,,,/Assets/VideoConferenceMute.png" Width="24" Height="24" />
+                    </ui:CardControl.Icon>
+                    <ui:CardControl.Header>
+                        <TextBlock Text="{l:Loc Enable}" Style="{StaticResource CardHeader}" />
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding Enabled}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                </ui:CardControl>
+
+                <ui:InfoBar Title="{Binding CameraWarning}" IsOpen="{Binding CameraWarningOpen, Mode=OneWay}" IsClosable="False"
+                            Severity="Warning" Margin="0,4,0,0" />
+
+                <StackPanel IsEnabled="{Binding Enabled}">
+
+                    <!-- Shortcuts -->
+                    <TextBlock Text="{l:Loc Shortcuts}" Style="{StaticResource GroupHeader}" />
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc HotkeyCameraAndMicrophone}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{Binding MuteCameraAndMicrophoneHotkeyWarning}" Style="{StaticResource CardWarning}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <local:ShortcutControl Hotkey="{Binding MuteCameraAndMicrophoneHotkey}"
+                                               DefaultHotkey="{x:Static core:VcmSettings.DefaultMuteCameraAndMicrophoneHotkey}" />
+                    </ui:CardControl>
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc HotkeyMicrophone}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{Binding MuteMicrophoneHotkeyWarning}" Style="{StaticResource CardWarning}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <local:ShortcutControl Hotkey="{Binding MuteMicrophoneHotkey}"
+                                               DefaultHotkey="{x:Static core:VcmSettings.DefaultMuteMicrophoneHotkey}" />
+                    </ui:CardControl>
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc HotkeyPushToTalk}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{Binding PushToTalkMicrophoneHotkeyWarning}" Style="{StaticResource CardWarning}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <local:ShortcutControl Hotkey="{Binding PushToTalkMicrophoneHotkey}"
+                                               DefaultHotkey="{x:Static core:VcmSettings.DefaultPushToTalkMicrophoneHotkey}" />
+                    </ui:CardControl>
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc HotkeyCamera}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{Binding MuteCameraHotkeyWarning}" Style="{StaticResource CardWarning}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <local:ShortcutControl Hotkey="{Binding MuteCameraHotkey}"
+                                               DefaultHotkey="{x:Static core:VcmSettings.DefaultMuteCameraHotkey}" />
+                    </ui:CardControl>
+
+                    <!-- Microphone -->
+                    <TextBlock Text="{l:Loc Microphone}" Style="{StaticResource GroupHeader}" />
+                    <ui:CardControl Icon="{ui:SymbolIcon Mic24}">
+                        <ui:CardControl.Header>
+                            <TextBlock Text="{l:Loc SelectedMicrophone}" Style="{StaticResource CardHeader}" />
+                        </ui:CardControl.Header>
+                        <ComboBox Style="{StaticResource SettingsCombo}" ItemsSource="{Binding MicrophoneOptions}"
+                                  SelectedValue="{Binding SelectedMicrophone}" />
+                    </ui:CardControl>
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc PushToReverse}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{l:Loc PushToReverseDescription}" Style="{StaticResource CardDescription}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <ui:ToggleSwitch IsChecked="{Binding PushToReverseEnabled}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                    </ui:CardControl>
+                    <ui:CardControl>
+                        <ui:CardControl.Header>
+                            <StackPanel>
+                                <TextBlock Text="{l:Loc EnforceMute}" Style="{StaticResource CardHeader}" />
+                                <TextBlock Text="{l:Loc EnforceMuteDescription}" Style="{StaticResource CardDescription}" />
+                            </StackPanel>
+                        </ui:CardControl.Header>
+                        <ui:ToggleSwitch IsChecked="{Binding EnforceMicrophoneMute}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                    </ui:CardControl>
+
+                    <!-- Camera -->
+                    <TextBlock Text="{l:Loc Camera}" Style="{StaticResource GroupHeader}" Margin="1,30,0,2" />
+                    <TextBlock Text="{l:Loc CameraDescription}" Style="{StaticResource CardDescription}" Margin="1,0,0,8" />
+                    <StackPanel IsEnabled="{Binding CameraAvailable}">
+                        <ui:CardExpander Icon="{ui:SymbolIcon Video24}" IsExpanded="True">
+                            <ui:CardExpander.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{l:Loc SelectedCamera}" Style="{StaticResource CardHeader}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" Style="{StaticResource SettingsCombo}" Margin="0,0,16,0"
+                                              ItemsSource="{Binding CameraOptions}" SelectedValue="{Binding SelectedCamera}"
+                                              IsEnabled="{Binding HasCameras}" />
+                                </Grid>
+                            </ui:CardExpander.Header>
+                            <StackPanel Margin="40,0,0,0">
+                                <Grid Margin="0,4,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{l:Loc OverlayImage}" Style="{StaticResource CardHeader}" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <ui:Button Content="{l:Loc Browse}" Click="OnBrowseOverlay" Margin="0,0,8,0" />
+                                        <ui:Button Content="{l:Loc Clear}" Click="OnClearOverlay" IsEnabled="{Binding HasOverlayImage}" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Visibility="{Binding HasOverlayImage, Converter={StaticResource BoolToVisibility}}"
+                                        HorizontalAlignment="Left" CornerRadius="4" Margin="0,0,0,12" ClipToBounds="True"
+                                        ToolTip="{Binding CameraOverlayImagePath}">
+                                    <Image Source="{Binding OverlayPreview}" MaxHeight="100" Stretch="Uniform"
+                                           AutomationProperties.Name="{l:Loc OverlayPreview}" />
+                                </Border>
+                                <Separator Margin="-40,0,0,12" />
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{l:Loc PowerOff}" Style="{StaticResource CardHeader}" />
+                                        <TextBlock Text="{l:Loc PowerOffDescription}" Style="{StaticResource CardDescription}" />
+                                    </StackPanel>
+                                    <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding CameraPowerOffWhenMuted}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                                </Grid>
+                            </StackPanel>
+                        </ui:CardExpander>
+                    </StackPanel>
+
+                    <!-- Toolbar -->
+                    <TextBlock Text="{l:Loc Toolbar}" Style="{StaticResource GroupHeader}" />
+                    <ui:CardExpander Icon="{ui:SymbolIcon WindowHeaderHorizontal20}" IsExpanded="True">
+                        <ui:CardExpander.Header>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{l:Loc ToolbarPosition}" Style="{StaticResource CardHeader}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" Style="{StaticResource SettingsCombo}" Margin="0,0,16,0"
+                                          ItemsSource="{Binding ToolbarPositionOptions}" SelectedValue="{Binding ToolbarPosition}" />
+                            </Grid>
+                        </ui:CardExpander.Header>
+                        <StackPanel Margin="40,0,0,0">
+                            <Grid Margin="0,4,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{l:Loc ToolbarMonitor}" Style="{StaticResource CardHeader}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" Style="{StaticResource SettingsCombo}"
+                                          ItemsSource="{Binding ToolbarMonitorOptions}" SelectedValue="{Binding ToolbarMonitor}" />
+                            </Grid>
+                            <Separator Margin="-40,0,0,12" />
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{l:Loc ToolbarHide}" Style="{StaticResource CardHeader}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" Style="{StaticResource SettingsCombo}"
+                                          ItemsSource="{Binding ToolbarHideOptions}" SelectedValue="{Binding ToolbarHide}" />
+                            </Grid>
+                        </StackPanel>
+                    </ui:CardExpander>
+
+                    <!-- Behavior -->
+                    <TextBlock Text="{l:Loc Behavior}" Style="{StaticResource GroupHeader}" />
+                    <ui:CardControl Icon="{ui:SymbolIcon Play24}">
+                        <ui:CardControl.Header>
+                            <TextBlock Text="{l:Loc StartupAction}" Style="{StaticResource CardHeader}" />
+                        </ui:CardControl.Header>
+                        <ComboBox Style="{StaticResource SettingsCombo}" ItemsSource="{Binding StartupActionOptions}"
+                                  SelectedValue="{Binding StartupAction}" />
+                    </ui:CardControl>
+                    <ui:CardControl Icon="{ui:SymbolIcon Speaker224}">
+                        <ui:CardControl.Header>
+                            <TextBlock Text="{l:Loc PlaySound}" Style="{StaticResource CardHeader}" />
+                        </ui:CardControl.Header>
+                        <ui:ToggleSwitch IsChecked="{Binding PlaySoundOnToggle}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                    </ui:CardControl>
+                    <ui:CardControl Icon="{ui:SymbolIcon AppsList24}">
+                        <ui:CardControl.Header>
+                            <TextBlock Text="{l:Loc TrayState}" Style="{StaticResource CardHeader}" />
+                        </ui:CardControl.Header>
+                        <ui:ToggleSwitch IsChecked="{Binding TrayIconShowsState}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                    </ui:CardControl>
+                </StackPanel>
+
+                <ui:CardControl Icon="{ui:SymbolIcon Rocket24}" Margin="0,3,0,0">
+                    <ui:CardControl.Header>
+                        <TextBlock Text="{l:Loc RunAtStartup}" Style="{StaticResource CardHeader}" />
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding RunAtStartup}" OnContent="{l:Loc On}" OffContent="{l:Loc Off}" />
+                </ui:CardControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ui:ContentDialogHost x:Name="RootDialogHost" Grid.Row="0" Grid.RowSpan="2" />
+    </Grid>
+</ui:FluentWindow>

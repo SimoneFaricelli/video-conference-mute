@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Vcm.App</RootNamespace>
+    <AssemblyName>VCM</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\VCM.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <SatelliteResourceLanguages>en;it</SatelliteResourceLanguages>
+    <!-- Lighter footprint for an app that mostly sits in the tray. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Vcm.Core\Vcm.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\VideoConference.png" />
+    <Resource Include="Assets\VideoConferenceMute.png" />
+    <Resource Include="Assets\VCM.ico" />
+  </ItemGroup>
+  <!-- The native virtual camera DLL is built separately (build/build.sh) and copied next to the exe when present. -->
+  <ItemGroup Condition="Exists('..\..\out\native\VcmVirtualCamera.dll')">
+    <None Include="..\..\out\native\VcmVirtualCamera.dll" Link="VcmVirtualCamera.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
