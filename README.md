@@ -32,6 +32,11 @@ Press **one shortcut** and your microphone and camera go silent, **system-wide**
 Discord, the browser, or any other app, whichever window has focus. A small toolbar shows the state at a glance, and
 the camera keeps streaming an image of your choice so the call never sees a frozen frame.
 
+<p align="center">
+  <img src="docs/assets/settings.png" alt="VCM settings window" width="720"><br>
+  <sub>The settings page, a faithful replica of the PowerToys one (shown in Italian; the UI follows the Windows language).</sub>
+</p>
+
 ## ⌨️ Default shortcuts
 
 | | Action | Shortcut |
