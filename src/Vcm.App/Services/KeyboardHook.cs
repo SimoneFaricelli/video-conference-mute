@@ -20,6 +20,8 @@ internal sealed class KeyboardHook : IDisposable
     private readonly Action<HotkeyAction> _released;
     private volatile Binding[] _bindings = [];
     private volatile bool _suspended;
+    private volatile bool _resyncModifiers = true;
+    private readonly ModifierTracker _modifiers = new();
     private Thread? _thread;
     private uint _threadId;
     private volatile IntPtr _hook;
@@ -49,7 +51,12 @@ internal sealed class KeyboardHook : IDisposable
     public bool Suspended
     {
         get => _suspended;
-        set => _suspended = value;
+        set
+        {
+            // Another hook may have swallowed modifier events while suspended.
+            if (_suspended && !value) _resyncModifiers = true;
+            _suspended = value;
+        }
     }
 
     private void Start()
@@ -57,7 +64,8 @@ internal sealed class KeyboardHook : IDisposable
         if (_thread is not null) return;
 
         using var ready = new ManualResetEventSlim();
-        _thread = new Thread(() => Run(ready)) { IsBackground = true, Name = "VCM keyboard hook" };
+        _resyncModifiers = true;
+        _thread = new Thread(() => Run(ready)) { IsBackground = true, Name = "VCM keyboard hook", Priority = ThreadPriority.Highest };
         _thread.Start();
         ready.Wait();
     }
@@ -119,6 +127,13 @@ internal sealed class KeyboardHook : IDisposable
             return NativeMethods.CallNextHookEx(_hook, nCode, wParam, lParam);
         }
 
+        if (_resyncModifiers)
+        {
+            _resyncModifiers = false;
+            _modifiers.Reset(IsDown);
+        }
+        _modifiers.Update(vk, down);
+
         if (!down)
         {
             // The key-down was swallowed, so the key-up must be as well.
@@ -137,19 +152,28 @@ internal sealed class KeyboardHook : IDisposable
 
         if (!_suspended)
         {
-            bool win = IsDown(KeyNames.VK_LWIN) || IsDown(KeyNames.VK_RWIN);
-            bool ctrl = IsDown(KeyNames.VK_CONTROL);
-            bool alt = IsDown(KeyNames.VK_MENU);
-            bool shift = IsDown(KeyNames.VK_SHIFT);
+            bool win = _modifiers.Win;
+            bool ctrl = _modifiers.Ctrl;
+            bool alt = _modifiers.Alt;
+            bool shift = _modifiers.Shift;
             foreach (var binding in _bindings)
             {
                 var h = binding.Hotkey;
-                if (h.Code == vk && h.Win == win && h.Ctrl == ctrl && h.Alt == alt && h.Shift == shift)
+                if (h.Code != vk) continue;
+
+                if (h.Win == win && h.Ctrl == ctrl && h.Alt == alt && h.Shift == shift)
                 {
                     _held[vk] = binding.Action;
                     if (win || alt) SuppressMenuActivation();
                     _pressed(binding.Action);
                     return 1;
+                }
+
+                // Diagnostic: the tracked state disagrees with the system's, so a shortcut may leak to Windows.
+                if (h.Win == (IsDown(KeyNames.VK_LWIN) || IsDown(KeyNames.VK_RWIN)) && h.Ctrl == IsDown(KeyNames.VK_CONTROL)
+                    && h.Alt == IsDown(KeyNames.VK_MENU) && h.Shift == IsDown(KeyNames.VK_SHIFT))
+                {
+                    Logger.Warn($"Hook modifier state mismatch for {h}: tracked win={win} ctrl={ctrl} alt={alt} shift={shift}");
                 }
             }
         }
@@ -163,15 +187,17 @@ internal sealed class KeyboardHook : IDisposable
     // Windows saw the modifier pressed alone. An unassigned key in between prevents it, as PowerToys does.
     private static void SuppressMenuActivation()
     {
-        var input = new NativeMethods.INPUT
+        var down = new NativeMethods.INPUT
         {
             type = NativeMethods.INPUT_KEYBOARD,
             u = new NativeMethods.InputUnion
             {
-                ki = new NativeMethods.KEYBDINPUT { wVk = 0xFF, dwFlags = NativeMethods.KEYEVENTF_KEYUP, dwExtraInfo = InjectedMarker },
+                ki = new NativeMethods.KEYBDINPUT { wVk = 0xFF, dwExtraInfo = InjectedMarker },
             },
         };
-        NativeMethods.SendInput(1, [input], Marshal.SizeOf<NativeMethods.INPUT>());
+        var up = down;
+        up.u.ki.dwFlags = NativeMethods.KEYEVENTF_KEYUP;
+        NativeMethods.SendInput(2, [down, up], Marshal.SizeOf<NativeMethods.INPUT>());
     }
 
     public void Dispose() => Stop();
