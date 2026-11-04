@@ -11,6 +11,11 @@ namespace vcm
     namespace
     {
         constexpr ULONGLONG ReopenDelayMs = 2000;
+        // A camera can open without errors and then never deliver a frame, typically when the call app reopens the
+        // virtual camera while the physical device is still being released. It is reopened after these delays.
+        constexpr ULONGLONG FirstFrameTimeoutMs = 4000;
+        constexpr ULONGLONG StallTimeoutMs = 3000;
+        constexpr ULONGLONG StallReopenDelayMs = 500;
 
         HRESULT CreateNv12Type(const VideoFormat& format, IMFMediaType** result)
         {
@@ -376,6 +381,18 @@ namespace vcm
             {
                 if (camera.HasFailed()) nextOpenAttempt = now + ReopenDelayMs;
                 camera.Close();
+            }
+            else if (camera.IsOpen())
+            {
+                // A frame may arrive on the reader thread after `now` was read.
+                ULONGLONG idle = now - std::min(now, camera.LastActivityTick());
+                if (idle >= (camera.HasDelivered() ? StallTimeoutMs : FirstFrameTimeoutMs))
+                {
+                    VCM_LOG(L"No camera frame for %llu ms (%s), reopening", idle,
+                        camera.HasDelivered() ? L"stalled" : L"none since opening");
+                    camera.Close();
+                    nextOpenAttempt = now + StallReopenDelayMs;
+                }
             }
             if (wantCamera && !camera.IsOpen() && now >= nextOpenAttempt)
             {

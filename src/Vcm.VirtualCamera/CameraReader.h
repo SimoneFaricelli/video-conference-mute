@@ -17,6 +17,7 @@ namespace vcm
         Microsoft::WRL::ComPtr<IMFSample> Take();
         bool HasDelivered();
         bool HasFailed();
+        ULONGLONG LastFrameTick();
 
         // IMFSourceReaderCallback
         IFACEMETHODIMP OnReadSample(HRESULT status, DWORD streamIndex, DWORD streamFlags, LONGLONG timestamp, IMFSample* sample) override;
@@ -31,6 +32,7 @@ namespace vcm
         bool m_active = false;
         bool m_delivered = false;
         bool m_failed = false;
+        ULONGLONG m_lastFrameTick = 0;
     };
 
     // Streams the selected physical camera, converted (decoded, resized) to NV12 at the requested format.
@@ -47,6 +49,8 @@ namespace vcm
         const std::wstring& Link() const { return m_link; }
         bool HasDelivered() const { return m_slot && m_slot->HasDelivered(); }
         bool HasFailed() const { return m_slot && m_slot->HasFailed(); }
+        // Tick of the latest frame, or of the opening while no frame has arrived yet.
+        ULONGLONG LastActivityTick() const { return m_slot && m_slot->HasDelivered() ? m_slot->LastFrameTick() : m_openedTick; }
         Microsoft::WRL::ComPtr<IMFSample> Take() const { return m_slot ? m_slot->Take() : nullptr; }
 
     private:
@@ -54,5 +58,6 @@ namespace vcm
         Microsoft::WRL::ComPtr<IMFSourceReader> m_reader;
         Microsoft::WRL::ComPtr<FrameSlot> m_slot;
         std::wstring m_link;
+        ULONGLONG m_openedTick = 0;
     };
 }

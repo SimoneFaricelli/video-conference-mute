@@ -48,6 +48,12 @@ namespace vcm
         return m_failed;
     }
 
+    ULONGLONG FrameSlot::LastFrameTick()
+    {
+        std::lock_guard lock(m_lock);
+        return m_lastFrameTick;
+    }
+
     IFACEMETHODIMP FrameSlot::OnReadSample(HRESULT status, DWORD, DWORD streamFlags, LONGLONG, IMFSample* sample)
     {
         // The lock is held while issuing the next read so Deactivate() cannot release the reader underneath us.
@@ -69,6 +75,7 @@ namespace vcm
         {
             m_latest = sample;
             m_delivered = true;
+            m_lastFrameTick = GetTickCount64();
             SetEvent(m_frameEvent.get());
         }
 
@@ -177,6 +184,7 @@ namespace vcm
         m_device = device;
         m_reader = reader;
         m_slot = slot;
+        m_openedTick = GetTickCount64();
         VCM_LOG(L"Camera opened: %s at %ux%u@%.2f", symbolicLink.c_str(), format.width, format.height, format.Fps());
         return S_OK;
     }

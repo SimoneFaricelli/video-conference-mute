@@ -5,7 +5,7 @@ real PC. Keep `%TEMP%\VCM.log` and `%ProgramData%\VCM\camera.log` at hand when s
 
 ## Install
 
-- [ ] `VCM-Setup-1.0.0.exe` installs the .NET 10 Desktop Runtime when it is missing.
+- [ ] `VCM-Setup-x.y.z.exe` installs the .NET 10 Desktop Runtime when it is missing.
 - [ ] `HKLM\SOFTWARE\Classes\CLSID\{D0AB47C7-9EBA-4D7A-AF72-4769A4D62109}\InprocServer32` points to
       `C:\Program Files\VCM\VcmVirtualCamera.dll`.
 - [ ] The app starts after setup and opens the settings window. The tray icon appears.
@@ -50,6 +50,9 @@ real PC. Keep `%TEMP%\VCM.log` and `%ProgramData%\VCM\camera.log` at hand when s
 - [ ] "Turn off the webcam when muted" on: the webcam light goes off while muted and comes back on unmute
       (overlay shown during the warm-up).
 - [ ] The same option off: the light stays on and only the picture changes.
+- [ ] Joining calls several times (Teams, Meet in the browser): the real picture always appears within a few seconds
+      of the call starting, without toggling the camera. If the physical camera delivers no frame, `camera.log`
+      reports "No camera frame for … ms, reopening" and the picture comes back on its own.
 - [ ] Closing the app using the camera: VCM unmutes everything (except with "hide when both are muted").
 - [ ] Exiting VCM removes the virtual camera.
 
