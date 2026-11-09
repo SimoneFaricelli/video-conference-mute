@@ -13,7 +13,7 @@ internal sealed class ToolbarManager : IDisposable
     private readonly Func<VcmSettings> _settings;
     private readonly DispatcherTimer _flashTimer;
     private readonly List<ToolbarWindow> _windows = [];
-    private DateTime _lastChange = DateTime.MinValue;
+    private bool _flashActive;
     private bool _enabled;
 
     public ToolbarManager(VcmEngine engine, Func<VcmSettings> settings, Dispatcher dispatcher)
@@ -23,6 +23,7 @@ internal sealed class ToolbarManager : IDisposable
         _flashTimer = new DispatcherTimer(ToolbarLogic.FlashDuration, DispatcherPriority.Normal, (_, _) =>
         {
             _flashTimer!.Stop();
+            _flashActive = false;
             Refresh();
         }, dispatcher);
         _flashTimer.Stop();
@@ -39,6 +40,8 @@ internal sealed class ToolbarManager : IDisposable
     public void Hide()
     {
         _enabled = false;
+        _flashTimer.Stop();
+        _flashActive = false;
         CloseWindows();
     }
 
@@ -69,7 +72,7 @@ internal sealed class ToolbarManager : IDisposable
     /// <summary>Called after every mute change: keeps the toolbar visible for the flash duration.</summary>
     public void Flash()
     {
-        _lastChange = DateTime.UtcNow;
+        _flashActive = true;
         _flashTimer.Stop();
         _flashTimer.Start();
         Refresh();
@@ -82,9 +85,8 @@ internal sealed class ToolbarManager : IDisposable
             return;
         }
 
-        bool flashActive = DateTime.UtcNow - _lastChange < ToolbarLogic.FlashDuration;
         bool micMuted = _engine.MicrophoneMuted;
-        bool show = ToolbarLogic.ShouldShow(_settings().ToolbarHide, _engine.CameraInUse, _engine.CameraMuted, micMuted, flashActive);
+        bool show = ToolbarLogic.ShouldShow(_settings().ToolbarHide, _engine.CameraInUse, _engine.CameraMuted, micMuted, _flashActive);
         var visual = ToolbarLogic.GetVisual(micMuted, _engine.CameraInUse, _engine.CameraMuted);
         bool dark = Services.SystemTheme.AppsUseDarkTheme;
 
