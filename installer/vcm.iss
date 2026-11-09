@@ -2,7 +2,7 @@
 ; Built by build/build.sh from out/app; see README.md.
 
 #define AppName "VideoConference Mute"
-#define AppVersion "1.0.1"
+#define AppVersion "1.0.2"
 #define AppExe "VCM.exe"
 #define SourceDir "..\out\app"
 
